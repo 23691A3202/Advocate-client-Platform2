@@ -1,4 +1,4 @@
-const nodemailer = require('nodemailer');
+import nodemailer from 'nodemailer';
 
 // In-memory storage for OTPs (in production, use a database)
 const otpStorage = new Map();
@@ -13,7 +13,7 @@ const cleanExpiredOTPs = () => {
   }
 };
 
-exports.handler = async (event, context) => {
+export const handler = async (event, context) => {
   // Enable CORS for all origins
   const headers = {
     'Access-Control-Allow-Origin': '*',
@@ -24,11 +24,7 @@ exports.handler = async (event, context) => {
 
   // Handle preflight requests
   if (event.httpMethod === 'OPTIONS') {
-    return {
-      statusCode: 200,
-      headers,
-      body: ''
-    };
+    return { statusCode: 200, headers, body: '' };
   }
 
   if (event.httpMethod !== 'POST') {
@@ -54,12 +50,20 @@ exports.handler = async (event, context) => {
     cleanExpiredOTPs();
 
     if (action === 'send') {
-      // Check if email credentials are configured
-      if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
+      // Check if email credentials are configured and not placeholders
+      const isEmailConfigured =
+        process.env.EMAIL_USER &&
+        process.env.EMAIL_PASS &&
+        !process.env.EMAIL_USER.includes('your-gmail') &&
+        !process.env.EMAIL_PASS.includes('your-');
+
+      if (!isEmailConfigured) {
         return {
           statusCode: 500,
           headers,
-          body: JSON.stringify({ error: 'Email service not configured' })
+          body: JSON.stringify({
+            error: 'Email service not configured. Please set EMAIL_USER and EMAIL_PASS in your .env file.'
+          })
         };
       }
 
@@ -70,8 +74,8 @@ exports.handler = async (event, context) => {
       // Store OTP with expiry
       otpStorage.set(email, { otp: otpCode, expiry });
 
-      // Create transporter
-      const transporter = nodemailer.createTransporter({
+      // Create transporter using nodemailer v7 ESM import
+      const transporter = nodemailer.createTransport({
         service: 'gmail',
         auth: {
           user: process.env.EMAIL_USER,
@@ -81,9 +85,9 @@ exports.handler = async (event, context) => {
 
       // Email content
       const mailOptions = {
-        from: process.env.EMAIL_USER,
+        from: `"Advocate-Client Platform" <${process.env.EMAIL_USER}>`,
         to: email,
-        subject: 'Advocate-Client Platform - Email Verification',
+        subject: 'Advocate-Client Platform - Email Verification OTP',
         html: `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
             <div style="text-align: center; margin-bottom: 30px;">
@@ -93,7 +97,7 @@ exports.handler = async (event, context) => {
               <h2 style="color: #2c3e50; margin-bottom: 20px;">Email Verification</h2>
               <p style="font-size: 16px; color: #555; margin-bottom: 30px;">Your verification code is:</p>
               <div style="background: white; padding: 20px; border-radius: 8px; border: 2px solid #3498db; margin: 20px 0;">
-                <h1 style="color: #2c3e50; font-size: 2.5em; margin: 0; letter-spacing: 5px;">${otpCode}</h1>
+                <h1 style="color: #2c3e50; font-size: 2.5em; margin: 0; letter-spacing: 8px;">${otpCode}</h1>
               </div>
               <p style="color: #e74c3c; font-weight: bold;">This code expires in 5 minutes</p>
               <p style="color: #777; font-size: 14px; margin-top: 30px;">If you didn't request this verification, please ignore this email.</p>
@@ -108,10 +112,7 @@ exports.handler = async (event, context) => {
       return {
         statusCode: 200,
         headers,
-        body: JSON.stringify({ 
-          success: true, 
-          message: 'OTP sent successfully' 
-        })
+        body: JSON.stringify({ success: true, message: 'OTP sent to your email successfully' })
       };
 
     } else if (action === 'verify') {
@@ -129,7 +130,7 @@ exports.handler = async (event, context) => {
         return {
           statusCode: 400,
           headers,
-          body: JSON.stringify({ error: 'OTP not found or expired' })
+          body: JSON.stringify({ error: 'OTP not found or expired. Please request a new one.' })
         };
       }
 
@@ -138,7 +139,7 @@ exports.handler = async (event, context) => {
         return {
           statusCode: 400,
           headers,
-          body: JSON.stringify({ error: 'OTP expired' })
+          body: JSON.stringify({ error: 'OTP has expired. Please request a new one.' })
         };
       }
 
@@ -146,20 +147,17 @@ exports.handler = async (event, context) => {
         return {
           statusCode: 400,
           headers,
-          body: JSON.stringify({ error: 'Invalid OTP' })
+          body: JSON.stringify({ error: 'Invalid OTP. Please try again.' })
         };
       }
 
-      // OTP verified, remove from storage
+      // OTP verified — remove from storage
       otpStorage.delete(email);
 
       return {
         statusCode: 200,
         headers,
-        body: JSON.stringify({ 
-          success: true, 
-          message: 'OTP verified successfully' 
-        })
+        body: JSON.stringify({ success: true, message: 'OTP verified successfully' })
       };
     }
 
@@ -170,11 +168,11 @@ exports.handler = async (event, context) => {
     };
 
   } catch (error) {
-    console.error('OTP API Error:', error);
+    console.error('OTP API Error:', error.message);
     return {
       statusCode: 500,
       headers,
-      body: JSON.stringify({ error: 'Internal server error' })
+      body: JSON.stringify({ error: error.message || 'Internal server error' })
     };
   }
 };
