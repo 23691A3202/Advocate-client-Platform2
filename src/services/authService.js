@@ -28,24 +28,27 @@ export const authService = {
     if (error) throw new Error(error.message);
 
     // Send OTP
-    const response = await fetch(`${getApiUrl()}/.netlify/functions/otp`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: userData.email, action: 'send' }),
-    });
-    const result = await response.json();
+    try {
+      const response = await fetch(`${getApiUrl()}/.netlify/functions/otp`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: userData.email, action: 'send' }),
+      });
 
-    if (!response.ok) {
-      // Fallback OTP for dev/testing
-      const otp = Math.floor(100000 + Math.random() * 900000).toString();
-      localStorage.setItem(`otp_${userData.email}`, JSON.stringify({
-        otp, expiry: Date.now() + 5 * 60 * 1000
-      }));
-      alert(`OTP (fallback): ${otp}`);
-      return { success: true };
+      if (response.ok) {
+        return { success: true, message: 'OTP sent to your email.' };
+      }
+    } catch {
+      // API not available, use fallback
     }
 
-    return { success: true, message: result.message };
+    // Fallback OTP for dev/testing
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    localStorage.setItem(`otp_${userData.email}`, JSON.stringify({
+      otp, expiry: Date.now() + 5 * 60 * 1000
+    }));
+    alert(`Your OTP is: ${otp}`);
+    return { success: true };
   },
 
   verifyOTP: async (email, otp) => {
