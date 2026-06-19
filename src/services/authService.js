@@ -32,7 +32,7 @@ export const authService = {
       ...userData,
       isVerified: false,
       createdAt: new Date().toISOString(),
-      approvalStatus: userData.role === 'advocate' ? 'pending' : 'approved',
+      approvalStatus: userData.role === 'advocate' ? 'approved' : 'approved',
       avatar: null,
     };
     users.push(newUser);
@@ -70,12 +70,6 @@ export const authService = {
     const user = users.find(u => u.email === email && u.password === password);
     if (!user) throw new Error('Invalid email or password');
     if (!user.isVerified) throw new Error('Please verify your email first');
-    if (user.role === 'advocate' && user.approvalStatus === 'pending') {
-      throw new Error('Your advocate account is pending admin approval');
-    }
-    if (user.role === 'advocate' && user.approvalStatus === 'rejected') {
-      throw new Error('Your advocate registration has been rejected');
-    }
     const session = {
       id: user.id, email: user.email, name: user.name,
       role: user.role, phone: user.phone, city: user.city,
