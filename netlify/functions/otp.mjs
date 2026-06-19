@@ -50,19 +50,17 @@ export const handler = async (event, context) => {
     cleanExpiredOTPs();
 
     if (action === 'send') {
-      // Check if email credentials are configured and not placeholders
+      // Check if email credentials are configured
       const isEmailConfigured =
         process.env.EMAIL_USER &&
-        process.env.EMAIL_PASS &&
-        !process.env.EMAIL_USER.includes('your-gmail') &&
-        !process.env.EMAIL_PASS.includes('your-');
+        process.env.EMAIL_PASS;
 
       if (!isEmailConfigured) {
         return {
           statusCode: 500,
           headers,
           body: JSON.stringify({
-            error: 'Email service not configured. Please set EMAIL_USER and EMAIL_PASS in your .env file.'
+            error: 'Email service not configured. Please set EMAIL_USER and EMAIL_PASS.'
           })
         };
       }
